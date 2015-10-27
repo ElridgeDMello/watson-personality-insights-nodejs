@@ -56,7 +56,16 @@ app.post('/', function(req, res, next) {
 
 
 function performProductRecommendationSearch(profile, response) {
-  // TODO:
+  // TODO: finish this and send result as response
+  /*
+  e.g. structure:
+  {
+    recommendations: [
+      {id: '', title: 'Item1', reason: 'Your friend has a high need in ...' },
+    ...]
+  }
+   */
+  response.json(profile);
 }
 
 function performPersonalityAnalysis(userInputText, callback, res) {
@@ -69,16 +78,16 @@ function performPersonalityAnalysis(userInputText, callback, res) {
       req;
 
   req = http.request(personalityInsightRequest, function(profileRes) {
-    var profileStr = '';
+    var profileStr = '', profile;
+
     profileRes.on('data', function(chunk) {
       profileStr += chunk;
     });
     profileRes.on('end', function() {
-      //console.log('profile: \n' + profileStr);
-      res.json(JSON.parse(profileStr));
+      profile = JSON.parse(profileStr);
+      callback(profile, res);
     });
 
-    // TODO: exec callback
   });
   req.write(userInputText);
   req.end();
