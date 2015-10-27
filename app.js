@@ -21,7 +21,11 @@ var express  = require('express'),
   bluemix    = require('./config/bluemix'),
   watson     = require('watson-developer-cloud'),
   extend     = require('util')._extend,
-  i18n       = require('i18next');
+  i18n       = require('i18next'),
+  twitter    = require('twitter'),
+  http       = require('http');
+
+var port = process.env.VCAP_APP_PORT || 3000;
 
 //i18n settings
 require('./config/i18n')(app);
@@ -50,9 +54,65 @@ app.post('/', function(req, res, next) {
   });
 });
 
+
+// delegates to and gets response from /tweets/:screen_name
+app.get('/personality/:screen_name', function(req, res) {
+  var requestOptions = {
+        port: port,
+        path: '/tweets/' + req.params.screen_name
+      },
+      req;
+
+  req = http.request(requestOptions, function(upstreamRes) {
+    var str = '';
+    upstreamRes.on('data', function(chunk) {
+      str += chunk;
+    });
+
+    upstreamRes.on('end', function() {
+      res.json(str);
+      // TODO: POST string to /
+      console.log('received this response from upstream: ' + str);
+    });
+  });
+  req.end();
+});
+
+// TWITTER COMM
+var twitterClient = new twitter({
+  consumer_key: process.env.TWITTER_CONSUMER_KEY,
+  consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
+  access_token_key: process.env.TWITTER_ACCESS_TOKEN_KEY,
+  access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
+});
+
+function getTweets(req, res) {
+  var params = {screen_name: req.params.screen_name},
+      textOfTweets;
+
+  twitterClient.get('statuses/user_timeline', params, function (error, tweets, response) {
+    if (!error) {
+      // TODO: Concat text together
+      textOfTweets = tweets.map(function (tweet) {
+        return tweet.text;
+      }).join('. ');  // naive joining of all tweets
+      console.log(textOfTweets);
+      res.json(textOfTweets);
+    } else {
+      console.error(error);
+      res.status(500).json({error: 'Something went wrong!'});
+    }
+  });
+}
+
+// app routes:
+app.get('/tweets/:screen_name', getTweets);
+
+// END TWITTER COMM
+
+
 // error-handler settings
 require('./config/error-handler')(app);
 
-var port = process.env.VCAP_APP_PORT || 3000;
 app.listen(port);
 console.log('listening at:', port);
