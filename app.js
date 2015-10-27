@@ -55,6 +55,36 @@ app.post('/', function(req, res, next) {
 });
 
 
+function performProductRecommendationSearch(profile, response) {
+  // TODO:
+}
+
+function performPersonalityAnalysis(userInputText, callback, res) {
+  var personalityInsightRequest = {
+        port: port,
+        path: '/',
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+      },
+      req;
+
+  req = http.request(personalityInsightRequest, function(profileRes) {
+    var profileStr = '';
+    profileRes.on('data', function(chunk) {
+      profileStr += chunk;
+    });
+    profileRes.on('end', function() {
+      //console.log('profile: \n' + profileStr);
+      res.json(JSON.parse(profileStr));
+    });
+
+    // TODO: exec callback
+  });
+  req.write(userInputText);
+  req.end();
+}
+
+
 // delegates to and gets response from /tweets/:screen_name
 app.get('/personality/:screen_name', function(req, res) {
   var requestOptions = {
@@ -64,15 +94,15 @@ app.get('/personality/:screen_name', function(req, res) {
       req;
 
   req = http.request(requestOptions, function(upstreamRes) {
-    var str = '';
+    var endUserInputText = '';
     upstreamRes.on('data', function(chunk) {
-      str += chunk;
+      endUserInputText += chunk;
     });
 
     upstreamRes.on('end', function() {
-      res.json(str);
-      // TODO: POST string to /
-      console.log('received this response from upstream: ' + str);
+      //res.json(endUserInputText);
+      console.log('Going to POST to /personalityInsights: ' + endUserInputText);
+      performPersonalityAnalysis('text=' + endUserInputText, performProductRecommendationSearch, res);
     });
   });
   req.end();
