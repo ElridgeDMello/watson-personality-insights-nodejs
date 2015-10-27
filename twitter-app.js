@@ -1,7 +1,7 @@
 var Twitter = require('twitter'),
     app = require('express')();
 
-var client = new Twitter({
+var twitterClient = new Twitter({
     consumer_key: process.env.TWITTER_CONSUMER_KEY,
     consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
     access_token_key: process.env.TWITTER_ACCESS_TOKEN_KEY,
@@ -12,7 +12,7 @@ function getTweets(req, res) {
     var params = {screen_name: req.params.screen_name},
         textOfTweets;
 
-    client.get('statuses/user_timeline', params, function (error, tweets, response) {
+    twitterClient.get('statuses/user_timeline', params, function (error, tweets, response) {
         if (!error) {
             textOfTweets = tweets.map(function (tweet) {
                 return tweet.text;
