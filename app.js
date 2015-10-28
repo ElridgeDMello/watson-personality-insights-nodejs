@@ -17,6 +17,7 @@
 'use strict';
 
 var express  = require('express'),
+  amazon = require('amazon-product-api'),
   app        = express(),
   bluemix    = require('./config/bluemix'),
   watson     = require('watson-developer-cloud'),
@@ -36,8 +37,8 @@ require('./config/express')(app);
 // if bluemix credentials exists, then override local
 var credentials = extend({
   version: 'v2',
-  username: '<username>',
-  password: '<password>'
+  username: process.env.PERSONALITY_INSIGHTS_USERNAME,
+  password: process.env.PERSONALITY_INSIGHTS_PASSWORD
 }, bluemix.getServiceCreds('personality_insights')); // VCAP_SERVICES
 
 // Create the service wrapper
@@ -55,17 +56,41 @@ app.post('/', function(req, res, next) {
 });
 
 
+function getStrongestNeedAndValue(profile) {
+    // TODO:
+    return encodeURIComponent('Love, Self-transcendence');
+}
+
 function performProductRecommendationSearch(profile, response) {
-  // TODO: finish this and send result as response
-  /*
+  /* TODO:
   e.g. structure:
   {
     recommendations: [
       {id: '', title: 'Item1', reason: 'Your friend has a high need in ...' },
-    ...]
+    ...],
+    reason: 'Based on your friend\'s strong personality traits:
   }
    */
-  response.json(profile);
+  var profileKeywords = getStrongestNeedAndValue(profile),
+      bookRecommendationParams = {
+          port: port,
+          path: '/books/' + profileKeywords,
+          method: 'GET'
+      }, req;
+
+  req = http.request(bookRecommendationParams, function(productsResponse) {
+      var recommendedProductsStr = '', recommendedProducts;
+
+      productsResponse.on('data', function(chunk) {
+          recommendedProductsStr += chunk;
+      });
+      productsResponse.on('end', function() {
+          recommendedProducts = JSON.parse(recommendedProductsStr);
+          console.log('got products: ' + recommendedProductsStr);
+          response.json(recommendedProducts);
+      });
+  });
+  req.end();
 }
 
 function performPersonalityAnalysis(userInputText, callback, res) {
@@ -131,7 +156,6 @@ function getTweets(req, res) {
 
   twitterClient.get('statuses/user_timeline', params, function (error, tweets, response) {
     if (!error) {
-      // TODO: Concat text together
       textOfTweets = tweets.map(function (tweet) {
         return tweet.text;
       }).join('. ');  // naive joining of all tweets
@@ -148,6 +172,47 @@ function getTweets(req, res) {
 app.get('/tweets/:screen_name', getTweets);
 
 // END TWITTER COMM
+
+
+// AMAZON COMM
+var amazonClient = amazon.createClient({
+    awsId: process.env.AMAZON_ASSOC_AWS_ID,
+    awsSecret: process.env.AMAZON_ASSOC_AWS_SECRET,
+    awsTag: process.env.AMAZON_ASSOC_AWS_TAG
+});
+
+function getBooks(req, res) {
+    "use strict";
+    var params = {
+        keywords: req.params.keywords,  // a comma separated list of strings
+        searchIndex: 'Books',
+        responseGroup: 'Images,ItemAttributes',
+        sort: 'relevancerank'
+    };
+
+    amazonClient.itemSearch(params).then(function(results) {
+        var mappedResult = results.map(function (item) {
+            return {
+                url: item.DetailPageURL[0],
+                image: {
+                    url: item.LargeImage[0].URL[0],
+                    height: item.LargeImage[0].Height[0]._,
+                    width: item.LargeImage[0].Width[0]._
+                },
+                title: item.ItemAttributes[0].Title[0]
+            };
+        });
+        res.json(mappedResult);
+    }).catch(function(err) {
+        console.error(err);
+        res.status(500).json({error: 'Something went wrong talking to Amazon!'});
+    });
+}
+
+app.get('/books/:keywords', getBooks);
+
+// END AMAZON COMM
+
 
 
 // error-handler settings
