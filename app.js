@@ -63,25 +63,16 @@ function getStrongestNeedAndValue(profile) {
             return categoryChild.percentage;
         });
     }
-    var relevantCategories,
-        maxNeedAndValue,
-        strongestNeedAndValueStr;
-
-    relevantCategories = profile.tree.children.filter(function(category) {
+    var relevantCategories = profile.tree.children.filter(function(category) {
         return category.id === 'values'  || category.id === 'needs';
     });
 
-    maxNeedAndValue = relevantCategories.map(function(category) {
+    return relevantCategories.map(function(category) {
         return {
             category: category.name,
             max: getMaxCategory(category.children[0].children).name
         }
     });
-
-    strongestNeedAndValueStr = _.pluck(maxNeedAndValue, 'max').join(', ');
-    console.log('STRONGEST ONES ARE: ' + strongestNeedAndValueStr);
-
-    return encodeURIComponent(strongestNeedAndValueStr);
 }
 
 function performProductRecommendationSearch(profile, response) {
@@ -94,10 +85,10 @@ function performProductRecommendationSearch(profile, response) {
     reason: 'Based on your friend\'s strong personality traits:
   }
    */
-  var profileKeywords = getStrongestNeedAndValue(profile),
+  var profileKeywords = _.pluck(getStrongestNeedAndValue(profile), 'max').join(', '),
       bookRecommendationParams = {
           port: port,
-          path: '/books/' + profileKeywords,
+          path: '/books/' + encodeURIComponent(profileKeywords),
           method: 'GET'
       }, req;
 
@@ -108,7 +99,11 @@ function performProductRecommendationSearch(profile, response) {
           recommendedProductsStr += chunk;
       });
       productsResponse.on('end', function() {
-          recommendedProducts = JSON.parse(recommendedProductsStr);
+          recommendedProducts = {
+              recommendations: JSON.parse(recommendedProductsStr),
+              reason: 'Your friend\'s strongest personality needs/attributes are: ' +
+                        profileKeywords
+          };
           //console.log('got products: ' + recommendedProductsStr);
           response.json(recommendedProducts);
       });
