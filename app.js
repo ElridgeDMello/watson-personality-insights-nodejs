@@ -24,7 +24,8 @@ var express  = require('express'),
   extend     = require('util')._extend,
   i18n       = require('i18next'),
   twitter    = require('twitter'),
-  http       = require('http');
+  http       = require('http'),
+  _          = require('underscore');
 
 var port = process.env.VCAP_APP_PORT || 3000;
 
@@ -57,8 +58,30 @@ app.post('/', function(req, res, next) {
 
 
 function getStrongestNeedAndValue(profile) {
-    // TODO:
-    return encodeURIComponent('Love, Self-transcendence');
+    function getMaxCategory(categoryChildren) {
+        return _.max(categoryChildren, function(categoryChild) {
+            return categoryChild.percentage;
+        });
+    }
+    var relevantCategories,
+        maxNeedAndValue,
+        strongestNeedAndValueStr;
+
+    relevantCategories = profile.tree.children.filter(function(category) {
+        return category.id === 'values'  || category.id === 'needs';
+    });
+
+    maxNeedAndValue = relevantCategories.map(function(category) {
+        return {
+            category: category.name,
+            max: getMaxCategory(category.children[0].children).name
+        }
+    });
+
+    strongestNeedAndValueStr = _.pluck(maxNeedAndValue, 'max').join(', ');
+    console.log('STRONGEST ONES ARE: ' + strongestNeedAndValueStr);
+
+    return encodeURIComponent(strongestNeedAndValueStr);
 }
 
 function performProductRecommendationSearch(profile, response) {
@@ -86,7 +109,7 @@ function performProductRecommendationSearch(profile, response) {
       });
       productsResponse.on('end', function() {
           recommendedProducts = JSON.parse(recommendedProductsStr);
-          console.log('got products: ' + recommendedProductsStr);
+          //console.log('got products: ' + recommendedProductsStr);
           response.json(recommendedProducts);
       });
   });
@@ -135,7 +158,7 @@ app.get('/personality/:screen_name', function(req, res) {
 
     upstreamRes.on('end', function() {
       //res.json(endUserInputText);
-      console.log('Going to POST to /personalityInsights: ' + endUserInputText);
+      //console.log('Going to POST to /personalityInsights: ' + endUserInputText);
       performPersonalityAnalysis('text=' + endUserInputText, performProductRecommendationSearch, res);
     });
   });
@@ -159,7 +182,7 @@ function getTweets(req, res) {
       textOfTweets = tweets.map(function (tweet) {
         return tweet.text;
       }).join('. ');  // naive joining of all tweets
-      console.log(textOfTweets);
+      //console.log(textOfTweets);
       res.json(textOfTweets);
     } else {
       console.error(error);
